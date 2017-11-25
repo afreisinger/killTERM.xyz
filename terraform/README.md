@@ -8,9 +8,6 @@ This is the place you ***WILL*** incur AWS charges if you create resources.
 
 At the top level configuration directory (this directory) 3 variables are required to be set:
 
-
-###
-
 ### zone_name
 
 The Route53 zone that DNS entries will be created in for SES DKIM and SPF records.

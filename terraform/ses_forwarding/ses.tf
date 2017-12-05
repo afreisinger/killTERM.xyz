@@ -56,6 +56,7 @@ resource "aws_ses_receipt_rule" "ses_forwarding" {
 
   depends_on = [
     "aws_ses_receipt_rule_set.ses_forwarding",
+    "aws_ses_receipt_rule.ses_noreply",
     "aws_route53_record.ses_verification_rec",
   ]
 

@@ -41,13 +41,13 @@ resource "aws_s3_bucket_policy" "remote_state_policy" {
   policy = "${data.template_file.s3_remote_state_policy.rendered}"
 
   lifecycle {
-    ignore_changes  = ["policy"]
-    prevent_destroy = "true"
+    ignore_changes = ["policy"]
   }
 }
 
 resource "aws_s3_bucket" "remote_state" {
-  bucket = "${var.prefix}-remote-state"
+  bucket        = "${var.prefix}-remote-state"
+  force_destroy = "true"
 
   versioning {
     enabled = true
@@ -56,9 +56,5 @@ resource "aws_s3_bucket" "remote_state" {
   tags {
     Name    = "${var.prefix}-remote-state"
     Project = "${var.project}"
-  }
-
-  lifecycle {
-    prevent_destroy = "true"
   }
 }

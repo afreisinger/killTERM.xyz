@@ -4,6 +4,18 @@ This Terraform configuration set will instantiate and destroy AWS infrastructure
 
 This is the place you ***WILL*** incur AWS charges if you create resources.
 
+## First time initialization
+Before creating any resources terraform needs to configure it's state file. The remote_state module has not been applied yet so the S3 backend won't work. For first time initialization run `terraform init -backend=false`. After that run `terraform apply -refresh=false` to create the remote state resources.
+
+Once the remote state bucket has been created edit the *main.tf* file and uncomment the block:
+> ```
+> terraform {
+>   backend = "s3" {}
+> } 
+> ```
+
+Then run `terraform --init` again to configure the S3 remote state backend. This will remove your local *terraform.tfstate* file so you might want to make a copy of it first.
+
 ## Terraform variables
 
 At the top level configuration directory (this directory) 3 variables are required to be set:

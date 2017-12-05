@@ -15,9 +15,11 @@ variable "region" {
   default     = "us-east-1"
 }
 
-terraform {
-  backend "s3" {}
-}
+## Uncomment this to enable remote state storage on S3
+## You will need to run terraform init after making this change.
+#terraform {
+#  backend "s3" {}
+#}
 
 provider "aws" {
   region = "${var.region}"

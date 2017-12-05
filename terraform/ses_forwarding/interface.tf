@@ -26,3 +26,8 @@ variable "reciever" {
 variable "project" {
   description = "Project tag to add to all resources created"
 }
+
+variable "awscli" {
+  description = "Absolute path to the `aws` command"
+  default     = "/usr/local/bin/aws"
+}

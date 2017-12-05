@@ -17,4 +17,4 @@ Remember to destroy resources when you're done for a bit so you're not spending 
 While not necessary  to use [terraform](https://terraform.io) I've included resources to create and destroy (almost) all of the infrastructure in AWS required to run the K8's cluster and other fun bits like SES email reception and forwarding. Please see the [README in the terraform folder](terraform/README.md) for more information.
 
 ## Docker, Packer and Ansible
-This example uses [Packer](https://packer.io/) and [Ansible](https://www.ansible.com/) to provision and create [Docker](https://www.docker.com) images for both local use with minikube and a k8's cluster running on AWS.
+This example uses [Packer](https://packer.io/) and [Ansible](https://www.ansible.com/) to provision and create [Docker](https://www.docker.com) images for both local use with minikube and a k8's cluster running on AWS. You must also have the [AWS CLI](https://aws.amazon.com/cli/) installed as well.

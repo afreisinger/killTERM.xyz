@@ -10,16 +10,6 @@ data "template_file" "s3_remote_state_policy" {
   }
 }
 
-data "terraform_remote_state" "s3" {
-  backend = "s3"
-
-  config {
-    bucket         = "${aws_s3_bucket.remote_state.id}"
-    key            = "terraform.tfstate"
-    dynamodb_table = "${var.prefix}_terraform_statelock"
-  }
-}
-
 resource "aws_dynamodb_table" "terraform_statelock" {
   name           = "${var.prefix}_terraform_statelock"
   hash_key       = "LockID"

@@ -43,3 +43,23 @@ resource "random_id" "zone_uuid" {
 
   byte_length = "8"
 }
+
+# Terraform is very picky about the format of tfvars files.
+resource "local_file" "remote_state_tfvars" {
+  content  = "${data.template_file.remote_state_config.rendered}"
+  filename = "remote_state.tfvars"
+}
+
+data "template_file" "remote_state_config" {
+  template = <<STATE_CONFIG
+bucket="$${bucket_id}"
+key="terraform.tfstate"
+dynamodb_table="$${table}"
+STATE_CONFIG
+
+  vars {
+    bucket_id = "${module.remote_state.bucket_id}"
+    key       = "terraform.tfstate"
+    table     = "${module.remote_state.dynamodb_table}"
+  }
+}

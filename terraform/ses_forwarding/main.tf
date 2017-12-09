@@ -47,7 +47,7 @@ resource "aws_route53_record" "dkim_rec" {
 }
 
 resource "aws_s3_bucket" "ses_emails" {
-  bucket        = "${var.zone_name}-ses-emails"
+  bucket        = "${var.zone_name}-${var.zone_uuid}-ses-emails"
   policy        = "${data.aws_iam_policy_document.ses_s3_action_doc.json}"
   acl           = "private"
   force_destroy = "true"
@@ -66,7 +66,7 @@ resource "aws_s3_bucket" "ses_emails" {
   }
 
   tags {
-    Name    = "${var.zone_name}-ses-emails"
+    Name    = "${var.zone_name}-${var.zone_uuid}-ses-emails"
     Project = "${var.project}"
   }
 
@@ -81,7 +81,7 @@ data "aws_iam_policy_document" "ses_s3_action_doc" {
 
   statement {
     actions   = ["s3:PutObject"]
-    resources = ["arn:aws:s3:::${var.zone_name}-ses-emails/*"]
+    resources = ["arn:aws:s3:::${var.zone_name}-${var.zone_uuid}-ses-emails/*"]
 
     principals {
       type        = "Service"
@@ -95,6 +95,12 @@ resource "aws_lambda_function" "ses_forwarding" {
   function_name = "${var.lambda_func_name}"
   handler       = "index.handler"
   role          = "${aws_iam_role.ses_forwarding_role.arn}"
+
+  environment {
+    variables = {
+      ZONE_UUID = "${var.zone_uuid}"
+    }
+  }
 
   source_code_hash = "${base64sha256(file("${path.module}/ses-forwarding.zip"))}"
 

@@ -11,8 +11,8 @@
         "s3:List*"
       ],
       "Resource": [
-        "arn:aws:s3:::${prefix}-remote-state/*",
-        "arn:aws:s3:::${prefix}-remote-state"
+        "arn:aws:s3:::${prefix}-${uuid}-remote-state/*",
+        "arn:aws:s3:::${prefix}-${uuid}-remote-state"
       ]
     }
   ]

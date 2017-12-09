@@ -1,7 +1,3 @@
-variable "prefix" {
-  description = "Prefix for s3 bucket to use for remote state"
-}
-
 variable "project" {
   description = "Project tag that will be applied to all resources created"
 }
@@ -26,9 +22,10 @@ provider "aws" {
 }
 
 module "remote_state" {
-  source  = "remote_state"
-  project = "${var.project}"
-  prefix  = "${var.prefix}"
+  source    = "remote_state"
+  project   = "${var.project}"
+  prefix    = "${var.zone_name}"
+  zone_uuid = "${random_id.zone_uuid.b64_url}"
 }
 
 module "ses_forwarding" {
@@ -36,4 +33,13 @@ module "ses_forwarding" {
   project   = "${var.project}"
   region    = "${var.region}"
   zone_name = "${var.zone_name}"
+  zone_uuid = "${random_id.zone_uuid.b64_url}"
+}
+
+resource "random_id" "zone_uuid" {
+  keepers = {
+    id = "${var.zone_name}"
+  }
+
+  byte_length = "8"
 }

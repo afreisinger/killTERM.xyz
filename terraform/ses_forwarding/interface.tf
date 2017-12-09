@@ -7,6 +7,10 @@ variable "zone_name" {
   description = "DNS zone to operate on"
 }
 
+variable "zone_uuid" {
+  description = "Generated UUID for global namespaces"
+}
+
 variable "reciever_map" {
   description = "Map of reigon: smtp servers to recieve mail on"
   type        = "map"

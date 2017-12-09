@@ -6,6 +6,7 @@ data "template_file" "s3_remote_state_policy" {
   vars {
     prefix         = "${var.prefix}"
     aws_account_id = "${data.aws_caller_identity.creator.account_id}"
+    uuid           = "${var.zone_uuid}"
   }
 }
 
@@ -13,9 +14,9 @@ data "terraform_remote_state" "s3" {
   backend = "s3"
 
   config {
-    bucket     = "${aws_s3_bucket.remote_state.id}"
-    key        = "terraform.tfstate"
-    lock_table = "${var.prefix}_terraform_statelock"
+    bucket         = "${aws_s3_bucket.remote_state.id}"
+    key            = "terraform.tfstate"
+    dynamodb_table = "${var.prefix}_terraform_statelock"
   }
 }
 
@@ -46,7 +47,7 @@ resource "aws_s3_bucket_policy" "remote_state_policy" {
 }
 
 resource "aws_s3_bucket" "remote_state" {
-  bucket        = "${var.prefix}-remote-state"
+  bucket        = "${var.prefix}-${var.zone_uuid}-remote-state"
   force_destroy = "true"
 
   versioning {
@@ -54,7 +55,7 @@ resource "aws_s3_bucket" "remote_state" {
   }
 
   tags {
-    Name    = "${var.prefix}-remote-state"
+    Name    = "${var.prefix}-${var.zone_uuid}-remote-state"
     Project = "${var.project}"
   }
 }

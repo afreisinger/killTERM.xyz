@@ -4,3 +4,6 @@ terraform.tfvars
 **/.tfstate*
 **/.terraform
 **/node_modules/
+*.swp
+**/*.swp
+

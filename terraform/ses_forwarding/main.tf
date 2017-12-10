@@ -107,6 +107,11 @@ resource "aws_lambda_function" "ses_forwarding" {
   runtime = "nodejs6.10"
   timeout = "10"
 
+  tags {
+    Name    = "${var.lambda_func_name}"
+    Project = "${var.project}"
+  }
+
   depends_on = ["null_resource.npm"]
 }
 

@@ -9,8 +9,12 @@ resource "aws_iam_role_policy_attachment" "lambda_s3_attach" {
 
 resource "aws_iam_policy" "lambda_s3_pol" {
   description = "Allow RW access for the ses-emails bucket"
-  name        = "LambdaSESForwardingS3RW"
+  name        = "${var.environment}-LambdaSESForwardingS3RW"
   policy      = "${data.aws_iam_policy_document.lambda_s3_rw_doc.json}"
+
+  lifecycle {
+    create_before_destroy = "true"
+  }
 }
 
 data "aws_iam_policy_document" "lambda_s3_rw_doc" {

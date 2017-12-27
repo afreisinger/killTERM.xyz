@@ -11,8 +11,12 @@ resource "aws_iam_role_policy_attachment" "ses_send_attach" {
 # Policy to allow sending raw email
 resource "aws_iam_policy" "ses_send_email_pol" {
   description = "Grant the SESSendRawEmail permission"
-  name        = "SESSendRawEmail"
+  name        = "${var.environment}-SESSendRawEmail"
   policy      = "${data.aws_iam_policy_document.ses_send_email_doc.json}"
+
+  lifecycle {
+    create_before_destroy = "true"
+  }
 }
 
 data "aws_iam_policy_document" "ses_send_email_doc" {

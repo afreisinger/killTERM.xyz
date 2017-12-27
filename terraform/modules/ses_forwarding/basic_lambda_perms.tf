@@ -16,9 +16,13 @@ resource "aws_iam_role_policy_attachment" "lambda_log_attach" {
 
 # Allows SES triggered events to send bounces if the lambda function gives up.
 resource "aws_iam_policy" "ses_send_bounce_pol" {
-  name   = "SESSendBounce"
+  name   = "${var.environment}-SESSendBounce"
   path   = "/service-role/"
   policy = "${data.aws_iam_policy_document.ses_send_bounce_doc.json}"
+
+  lifecycle {
+    create_before_destroy = "true"
+  }
 }
 
 data "aws_iam_policy_document" "ses_send_bounce_doc" {
@@ -31,9 +35,13 @@ data "aws_iam_policy_document" "ses_send_bounce_doc" {
 }
 
 resource "aws_iam_policy" "lambda_logging_pol" {
-  name   = "LambdaSESForwardingLogs"
+  name   = "${var.environment}-LambdaSESForwardingLogs"
   path   = "/service-role/"
   policy = "${data.aws_iam_policy_document.lambda_logs_doc.json}"
+
+  lifecycle {
+    create_before_destroy = "true"
+  }
 }
 
 # Allow our lambda function to create it's log group and streams
@@ -55,7 +63,7 @@ data "aws_iam_policy_document" "lambda_logs_doc" {
     ]
 
     resources = [
-      "arn:aws:logs:${var.region}:${data.aws_caller_identity.creator.account_id}:log-group:/aws/lambda/${var.lambda_func_name}:*",
+      "arn:aws:logs:${var.region}:${data.aws_caller_identity.creator.account_id}:log-group:/aws/lambda/${local.lambda_func}:*",
     ]
   }
 }

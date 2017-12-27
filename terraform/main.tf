@@ -2,8 +2,8 @@ variable "project" {
   description = "Project tag that will be applied to all resources created"
 }
 
-variable "zone_name" {
-  description = "DNS zone name to create MX records in"
+variable "zone_apex" {
+  description = "Root DNS zone to create records and subdomains in"
 }
 
 variable "region" {
@@ -11,55 +11,75 @@ variable "region" {
   default     = "us-east-1"
 }
 
-## Uncomment this to enable remote state storage on S3
-## You will need to run terraform init after making this change.
-#terraform {
-#  backend "s3" {}
-#}
+variable "environment" {
+  description = "Environment we are operating in"
+}
+
+variable "bucket" {
+  description = "S3 bucket to hold remote state"
+}
+
+variable "dynamodb_table" {
+  description = "DynamoDB table for remote state locking"
+}
+
+terraform {
+  backend "s3" {
+    key     = "terraform.tfstate"
+    encrypt = "true"
+    acl     = "private"
+  }
+}
 
 provider "aws" {
-  region = "${var.region}"
+  region  = "${var.region}"
+  version = "~> 1.6"
 }
 
-module "remote_state" {
-  source    = "remote_state"
-  project   = "${var.project}"
-  prefix    = "${var.zone_name}"
-  zone_uuid = "${random_id.zone_uuid.b64_url}"
+provider "random" {
+  version = "~> 1.1"
 }
 
-module "ses_forwarding" {
-  source    = "ses_forwarding"
-  project   = "${var.project}"
-  region    = "${var.region}"
-  zone_name = "${var.zone_name}"
-  zone_uuid = "${random_id.zone_uuid.b64_url}"
+data "terraform_remote_state" "email_prod" {
+  backend = "s3"
+
+  config {
+    key            = "env:/email-prod/terraform.tfstate"
+    bucket         = "${var.bucket}"
+    dynamodb_table = "${var.dynamodb_table}"
+  }
+}
+
+data "terraform_remote_state" "email_staging" {
+  backend = "s3"
+
+  config {
+    key            = "env:/email-staging/terraform.tfstate"
+    bucket         = "${var.bucket}"
+    dynamodb_table = "${var.dynamodb_table}"
+  }
+}
+
+data "terraform_remote_state" "email_uat" {
+  backend = "s3"
+
+  config {
+    key            = "env:/email-uat/terraform.tfstate"
+    bucket         = "${var.bucket}"
+    dynamodb_table = "${var.dynamodb_table}"
+  }
 }
 
 resource "random_id" "zone_uuid" {
   keepers = {
-    id = "${var.zone_name}"
+    id = "${var.environment}.${var.zone_apex}"
   }
 
   byte_length = "8"
 }
 
-# Terraform is very picky about the format of tfvars files.
-resource "local_file" "remote_state_tfvars" {
-  content  = "${data.template_file.remote_state_config.rendered}"
-  filename = "remote_state.tfvars"
-}
-
-data "template_file" "remote_state_config" {
-  template = <<STATE_CONFIG
-bucket="$${bucket_id}"
-key="terraform.tfstate"
-dynamodb_table="$${table}"
-STATE_CONFIG
-
-  vars {
-    bucket_id = "${module.remote_state.bucket_id}"
-    key       = "terraform.tfstate"
-    table     = "${module.remote_state.dynamodb_table}"
+resource "null_resource" "canary" {
+  triggers {
+    dummy = "${random_id.zone_uuid.Only_targets_not_plain_apply}"
   }
 }

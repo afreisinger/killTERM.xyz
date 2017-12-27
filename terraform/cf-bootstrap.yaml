@@ -1,0 +1,89 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Bootstrap the killTERM.xyz project for Terraform
+
+Parameters:
+  ProjectNameParameter:
+    Description: Optional \"Project\" tag value
+    Type: String
+    Default: xyz
+    MaxLength: 255
+
+  TFStateGroupParameter:
+    Description: |-
+      Comma delimited list of group(s) that are allowed to read and 
+      modify Terraform state data
+    Type: CommaDelimitedList
+    Default: root
+
+Conditions:
+  HasProjectTag:
+    !Not [ !Equals [ !Ref ProjectNameParameter, '']]
+
+Resources:
+  TFBackendStateBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      AccessControl: "Private"
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Project
+          Value: !If [
+            HasProjectTag,
+            !Ref ProjectNameParameter,
+            !Ref "AWS::NoValue"
+          ]
+
+  TFBackendStateAdminPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Description: |- 
+      Allow RW permsssions to the Terraform Backend State bucket
+      and DynamoDB Lock Database
+    Properties:
+      Groups: !Ref TFStateGroupParameter
+      PolicyDocument:
+        Version: "2012-10-17"
+        Id: !Join ['-' , [ !Ref TFBackendStateBucket, policy ]]
+        Statement:
+          - Sid: AllowRW
+            Effect: Allow
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+            Resource:
+              - !Join [ '', [ !GetAtt TFBackendStateBucket.Arn, "/*"]]
+  
+  TFDynamoDBLockTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+         - AttributeName: "LockID"
+           AttributeType: "S"
+      KeySchema:
+        - AttributeName: "LockID"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      Tags:
+        - Key: Project
+          Value: !If [
+            HasProjectTag,
+            !Ref ProjectNameParameter,
+            !Ref "AWS::NoValue" ]
+
+Outputs:
+  bucket:
+    Description: Remote state bucket name
+    Value: !Ref TFBackendStateBucket
+  dynamodbtable:
+    Description: DynamoDB lock table for S3 remote state
+    Value: !Ref TFDynamoDBLockTable
+
+
+
+
+      
+
+

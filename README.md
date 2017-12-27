@@ -1,9 +1,9 @@
 # killTERM.xyz example DevOps sandbox.
 An example of how to use various automation tools to stand up, tear down, and test a complete AWS/kubernetes environment suitable for adaptation to your own environment.
 
-*This is a work in progress as I work through learning this stuff myself so consider this very incomplete*
+*This is a work in progress I play with time permitting so consider it very incomplete*
 
-I've tried to make this as modular as possible so **SIGNIFICANT MODIFICATION NEEDS TO BE DONE BEFORE THIS WILL WORK IN YOUR ENVIRONMENT - PLEASE READ CAREFULLY**
+I've tried to make this as modular as possible but **SIGNIFICANT MODIFICATION NEEDS TO BE DONE BEFORE THIS WILL WORK IN YOUR ENVIRONMENT - PLEASE READ CAREFULLY**
 
 ## Cost
 The resources used by these examples ***WILL cost you real money*** even if you're in the free tier.  I've made attempts to keep costs as low as possible but you will incur charges for runninig these these demos.  

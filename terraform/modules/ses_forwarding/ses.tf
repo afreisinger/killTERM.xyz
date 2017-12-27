@@ -1,7 +1,3 @@
-resource "aws_ses_receipt_rule_set" "ses_forwarding" {
-  rule_set_name = "ses-forwarding"
-}
-
 resource "null_resource" "wait_for_ses_validation" {
   triggers {
     token = "${aws_ses_domain_identity.ses_domain_id.verification_token}"
@@ -27,14 +23,18 @@ SCRIPT
 }
 
 resource "aws_ses_receipt_rule" "ses_noreply" {
-  name          = "bounce-noreply"
-  rule_set_name = "ses-forwarding"
-  recipients    = ["noreply@${var.zone_name}"]
-  enabled       = "true"
-  scan_enabled  = "false"
+  name          = "${var.environment}-bounce-noreply"
+  rule_set_name = "${var.rule_set_name}"
+  after         = "${aws_ses_receipt_rule.begin_anchor.name}"
+
+  recipients = [
+    "noreply@${var.zone_name}",
+  ]
+
+  enabled      = "true"
+  scan_enabled = "false"
 
   depends_on = [
-    "aws_ses_receipt_rule_set.ses_forwarding",
     "null_resource.wait_for_ses_validation",
   ]
 
@@ -45,19 +45,23 @@ resource "aws_ses_receipt_rule" "ses_noreply" {
     status_code     = "5.5.1"
     position        = "1"
   }
+
+  stop_action {
+    scope    = "RuleSet"
+    position = "2"
+  }
 }
 
 resource "aws_ses_receipt_rule" "ses_forwarding" {
-  name          = "ses-forwarding"
-  after         = "bounce-noreply"
+  name          = "${var.environment}-ses-forwarding"
+  after         = "${aws_ses_receipt_rule.ses_noreply.name}"
   enabled       = "true"
   scan_enabled  = "true"
-  rule_set_name = "ses-forwarding"
+  tls_policy    = "Require"
+  rule_set_name = "${var.rule_set_name}"
 
-  depends_on = [
-    "aws_ses_receipt_rule_set.ses_forwarding",
-    "aws_ses_receipt_rule.ses_noreply",
-    "aws_route53_record.ses_verification_rec",
+  recipients = [
+    "${var.zone_name}",
   ]
 
   s3_action {
@@ -71,9 +75,34 @@ resource "aws_ses_receipt_rule" "ses_forwarding" {
     invocation_type = "Event"
     position        = "2"
   }
+
+  depends_on = [
+    "aws_lambda_permission.ses_forwarding_function_policy",
+  ]
 }
 
-resource "aws_ses_active_receipt_rule_set" "active_ruleset" {
-  rule_set_name = "ses-forwarding"
-  depends_on    = ["aws_ses_receipt_rule_set.ses_forwarding"]
+resource "aws_ses_receipt_rule" "begin_anchor" {
+  name          = "${var.zone_name}-begin-anchor"
+  enabled       = "false"
+  scan_enabled  = "false"
+  tls_policy    = "Require"
+  rule_set_name = "${var.rule_set_name}"
+  after         = "${var.anchor}"
+
+  lifecycle {
+    create_before_destroy = "true"
+  }
+}
+
+resource "aws_ses_receipt_rule" "end_anchor" {
+  name          = "${var.zone_name}-end-anchor"
+  enabled       = "false"
+  scan_enabled  = "false"
+  tls_policy    = "Require"
+  rule_set_name = "${var.rule_set_name}"
+  after         = "${aws_ses_receipt_rule.ses_forwarding.name}"
+
+  lifecycle {
+    create_before_destroy = "true"
+  }
 }

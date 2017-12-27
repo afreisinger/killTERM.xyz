@@ -9,4 +9,6 @@
 **/*.swp
 **/*.plan
 *.plan
-
+*.zip
+**/*.zip
+!envs/**/00-*.tfvars*

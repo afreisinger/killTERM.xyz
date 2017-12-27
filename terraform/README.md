@@ -4,80 +4,114 @@ This Terraform configuration set will instantiate and destroy AWS infrastructure
 
 This is the place you ***WILL*** incur AWS charges if you create resources.
 
+## Requirements
+### Software
+
+* [Terraform >= 1.11.0](https://www.terraform.io/intro/getting-started/install.html)
+* [jq >= 1.5](https://stedolan.github.io/jq/download/)
+* [AWS CLI >= 1.11.120](https://github.com/aws/aws-cli)
+* A *zip* command line utility for creating .zip files
+
+## Prerequisite Setup
+### AWS Account
+You must have already created and AWS account. It is strongly suggested you create an IAM user and add them to the root group as well.
+
+Everything assumes you have configured the AWS CLI tools as described in the [AWS Command Line Interface User Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
+
+You must have already registered and created at least one [public Hosted Zone with Route 53](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/CreatingHostedZone.html).
+
+It should be possible to modify the configuration here to use entirely Private Route 53 Hosted zones as well as reusable delegation sets as well but is not implemented currently (PR's welcome).
+
+Keep in mind that [charges for Route 53 Hosted Zones](https://aws.amazon.com/route53/pricing/) are not pro-rated. You will incur the full monthly cost if a zone exists for more than 12 hours even in accounts that qualify for the free tier. **It is your responsibility to destroy the hosted zones created within 12 hours if you do not wish to incur these charges**.
+
 ## First time initialization
-Before creating any resources terraform needs to configure it's state file. The remote_state module has not been applied yet so the S3 backend won't work. For first time initialization run:
+You should only have to do this once.
 
+1) Bootstrap the remote state backend for S3 storage:
 ```
-# Pull required modules
-terraform init
-terraform apply
-```
-
-Once the remote state bucket has been created edit the *main.tf* file and uncomment the block:
-
-```
-## Uncomment this to enable remote state storage on S3
-## You will need to run terraform init after making this change.
-terraform {
-  backend = "s3" {}
-} 
+aws cloudformation create-stack --stack-name <YOUR-STACK-NAME>
+ --template-body file://`pwd`/cf-bootstrap.yaml --capabilities CAPABILITY_IAM --tags "Key=Project,Value=<YOUR-PROJECT-TAG>"
 ```
 
-Run `terraform init -backend-config=remote_state.tfvars` to configure the S3 remote state backend. This will remove your local *terraform.tfstate* file so you might want to make a copy of it first.
+This creates the S3 bucket for storing remote state and a DynamoDB for locking. It should fall completely within the Free Tier and cost nothing.
 
-You can test that locking is working properly by running 2 `terraform plan` commands simultaneously. One should fail with a locking error.
-
-Before running a `terraform destroy` revert remote state back to local by re-commenting the *terraform* configuration in *main.cf*:
-
+2) Wait for stack creation to complete (should take less than a minute):
 ```
-## Uncomment this to enable remote state storage on S3
-## You will need to run terraform init after making this change.
-#terraform {
-#  backend = "s3" {}
-#} 
+aws cloudformation wait stack-create-complete --stack-name <YOUR-STACK-NAME>
 ```
 
-Run `terraform init` again and terraform will create a local *terraform.tfstate* file. Now you can run `terraform destroy` and it should remove all the resources without errors.
+3) Generate the tfvars for our backend initialization:
+```
+aws cloudformation --output=json describe-stacks | jq '.Stacks[] | select(.StackName == "<YOUR-STACK-NAME>") | .Outputs | map(.OutputKey = (.OutputKey | sub("dynamodbtable"; "dynamodb_table"))) | map({(.OutputKey): .OutputValue}) | add' > backend-config.tfvars.json
+```
 
-## Terraform variables
+This extracts the unique resource names created by the CloudFormation template and places them in a JSON tfvars file to be read by Terraform later.
 
-At the top level configuration directory (this directory) 3 variables are required to be set:
+# Terraform Organization
+## Layout
+This is a bit in-flux but based loosely on the [Terraservices](https://www.slideshare.net/opencredo/hashidays-london-2017-evolving-your-infrastructure-with-terraform-by-nicki-watt) model using the [*workspace*](https://www.terraform.io/docs/state/workspaces.html) feature introduced in Terraform 0.10. The directory layout looks like this:
 
-### zone_name
+```
+/
+├── README.md
+├── backend-config.tfvars.json
+├── cf-bootstrap.yaml
+├── main.tf
+├── terraform.tfvars
+├── envs
+│   ├── prod
+│   │   ├── 00-backend-config.auto.tfvars.json -> ../../backend-config.tfvars.json
+│   │   ├── 00-main.tf -> ../../main.tf
+│   │   ├── 00-terraform.auto.tfvars -> ../../terraform.tfvars
+│   │   ├── email.tf
+│   │   ├── lambda
+│   │   ├── lambda
+│   │   │   ├── index.js
+│   │   │   ├── node_modules
+│   │   │   └── package.json
+│   │   ├── terraform.tfvars
+│   │   └── terraform.tfvars.json
+│   ├── staging
+│   │   └── ...
+│   └── uat
+│       └── ..
 
-The Route53 zone that DNS entries will be created in for SES DKIM and SPF records.
+└── modules
+    └── ses_forwarding
+```
 
-The Route53 zone must be manually created prior to applying these commands with at least the SOA and NS records populated.
+The `envs/<env>/` directories contain configuration for a specific environment and is it's own TERRAFORM_ROOT.
 
-If you register your domain through AWS a zone will be automatically created for you with the required fields pre-populated.
+The `00-...` symlinks link back to the top level directory (this one) where items common to all environments are stored. These are simply to reduce boilerplate environment setup and bring variables and cross-environment data into the current environment's namespace.
 
-If you prefer to use a different registrar see [Migrating DNS Service for an Existing Domain to Amazon Route 53](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/MigratingDNS.html).
+## Envisioned workflow
+### Initialization
+Once a new environment is created, it must be initialized. Keep in mind that each environment is it's own TERRAFORM_ROOT. Workspaces in each root are **local** and will not be shared between copies of the repository. Currently in Terraform CE all the workspace command does is create a file called `.terraform/environment` with the workspace name in it and set the `${terraform.workspace}` variable.
 
-### project
-The value for a tag with the key `Project`, this is used to help track costs and verify cleanup after a destroy. All resources created will have this tag attached if possible.
+1. Initialize the backend:
+```
+terraform --init --backend-config=00-backend-config.auto.tfvars.json
+```
 
-### region (optional)
+2. Refresh the environment state:
+```
+terraform refresh
+```
+3. Add the new environment and service(s) after the list of other data sources to the 00-main.tf. See the existing ones for examples (WIP).
 
-Specify the AWS region to operate in. Defaults to `us-east-1`. This has not been tested in any other region so please provide feedback on other regions if you try them there.
+### Use the env/workspace model
 
-## Specifying Variables
-The above variables may all be defined on the command line with the `-var "<var>=<value>"`, in a file specified with `-var-file=<var_file_name>` or in a file named `terraform.tfvars` in this directory.
+Once your new environment directory is initialized create or select the desired workspace.
 
-If you use the terraform.tfvars file you should ensure that it is added to `.gitignore` to avoid possibly leaking sensitive information in source control.
+The current model is to contain a service inside it's own file and pass a shared module the appropriate variables based on environment. See [`email.tf`](envs/uat/email.tf) for an example.
 
-A sample terraform.tfvars file is named [terraform.tfvars.ex](terraform.tfvars.ex) in this directory.
+For the *email* service in the *uat* environment we would name the workspace `email-uat`. Make sure you are in the correct workspace for the service you're working on.
 
-## Terraform modules
-Two modules are used to do most of the real work.
+To apply a configuration use the *--target* option to select the [null_resource](https://www.terraform.io/docs/provisioners/null_resource.html) that ensures all resources are created. Generally this will be handled by [depends_on](https://www.terraform.io/intro/getting-started/dependencies.html#implicit-and-explicit-dependencies) in the module.
 
-### remote_state
-The `remote_state` module stores the terraform.tfstate file in an S3 bucket to enable multiple people to work with the terraform configurations concurrently.
+There is a *canary* resource in `00-main.tf` with no dependencies that will only be created (and error) if no *--target* is specified. This can be commented out and planned without a target to see what dependencies might be missing in the target.
 
-It also creates a small DynamoDB database to ensure state consistency during concurrent runs.
+--
+This structure is a work in progress and I'm experimenting with better ways to organize things with an eye toward how these features got to CE from Terraform Enterprise.
 
-See the remote_state [README](remote_state/README.md) for more information on this module.
-
-### ses_forwarding
-The `ses_forwarding` module sets up an SES and lambda based SMTP receiver that can forward emails to your domain to another provider like gmail without having to pay for gmail for domains. It's not the greatest solution but it's cheap and easy.
-
-This module requires some additional configuration. See the ses_forwarding [README](ses_forwarding/README.md) for more information on this module.
+Please feel free to comment by opening an issue or submitting a PR for other solutions.

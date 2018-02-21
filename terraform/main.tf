@@ -40,6 +40,8 @@ provider "random" {
   version = "~> 1.1"
 }
 
+// Email state requires coordination between all environments so
+// share state files here
 data "terraform_remote_state" "email_prod" {
   backend = "s3"
 
@@ -76,10 +78,4 @@ resource "random_id" "zone_uuid" {
   }
 
   byte_length = "8"
-}
-
-resource "null_resource" "canary" {
-  triggers {
-    dummy = "${random_id.zone_uuid.Only_targets_not_plain_apply}"
-  }
 }

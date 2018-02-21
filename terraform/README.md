@@ -107,10 +107,6 @@ The current model is to contain a service inside it's own file and pass a shared
 
 For the *email* service in the *uat* environment we would name the workspace `email-uat`. Make sure you are in the correct workspace for the service you're working on.
 
-To apply a configuration use the *--target* option to select the [null_resource](https://www.terraform.io/docs/provisioners/null_resource.html) that ensures all resources are created. Generally this will be handled by [depends_on](https://www.terraform.io/intro/getting-started/dependencies.html#implicit-and-explicit-dependencies) in the module.
-
-There is a *canary* resource in `00-main.tf` with no dependencies that will only be created (and error) if no *--target* is specified. This can be commented out and planned without a target to see what dependencies might be missing in the target.
-
 --
 This structure is a work in progress and I'm experimenting with better ways to organize things with an eye toward how these features got to CE from Terraform Enterprise.
 

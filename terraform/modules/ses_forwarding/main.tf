@@ -107,6 +107,15 @@ data "aws_iam_policy_document" "ses_s3_action_doc" {
       type        = "Service"
       identifiers = ["ses.amazonaws.com"]
     }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:Referer"
+
+      values = [
+        "${data.aws_caller_identity.creator.account_id}",
+      ]
+    }
   }
 }
 
